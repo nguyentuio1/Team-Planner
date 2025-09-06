@@ -1,7 +1,7 @@
 # To-Do App – Preliminary Assignment Submission
 ⚠️ Please complete **all sections marked with the ✍️ icon** — these are required for your submission.
 
-👀 Please Check ASSIGNMENT.md in this repository file for assignment requirements.
+👀 Please Check ASSIGNMENT.md file in this repository for assignment requirements.
 
 ## 🚀 Project Setup & Usage
 **How to install and run your project:**  
