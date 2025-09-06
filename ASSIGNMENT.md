@@ -55,7 +55,7 @@ Include at least one smart or creative feature of your own. Examples:
 ---
 
 ## 📦 Submissions  
-- **Source code**: GitHub repository link (**README.md required**)  
+- **Source code**: GitHub repository (main branch) (**README.md required**)  
 - **Executable demo**:  
   - Web: Deployment link or local execution guide  
   - App: APK file  
