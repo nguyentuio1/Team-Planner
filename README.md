@@ -13,6 +13,7 @@ Example (replace with your actual steps)
 ## 🔗 Deployed Web URL or APK file
 ✍️ [Paste your link here]
 
+
 ## 🎥 Demo Video
 **Demo video link (≤ 2 minutes):**  
 📌 **Video Upload Guideline:** when uploading your demo video to YouTube, please set the visibility to **Unlisted**.  
@@ -22,25 +23,40 @@ Example (replace with your actual steps)
 
 ✍️ [Paste your video link here]
 
-## 📖 Function Manual
-✍️ [Write your content here, explain about your app's functions]
 
-## 🛠 Technology Stack and Implementation Methods
+## 💻 Project Introduction
+
+### a. Overview
+
 ✍️ [Write your content here]
 
-## 🗄 Database structure (when used)
+### b. Key Features & Function Manual
+
+✍️ [Write your content here, explain about your app's functions]
+
+### c. Unique Features (What’s special about this app?) 
+
+✍️ [Write your content here]
+
+### d. Technology Stack and Implementation Methods
+
+✍️ [Write your content here]
+
+### e. Service Architecture & Database structure (when used)
+
 ✍️ [Write your content here]
 
 ## 🧠 Reflection
 
-### What’s special about this app?  
+### a. If you had more time, what would you expand?
+
 ✍️ [Write your content here]
 
-### If you had more time, what would you expand?  
+
+### b. If you integrate AI APIs more for your app, what would you do?
+
 ✍️ [Write your content here]
 
-### If you integrate AI APIs more for your app, what would you do?  
-✍️ [Write your content here]
 
 ## ✅ Checklist
 - [ ] Code runs without errors  
