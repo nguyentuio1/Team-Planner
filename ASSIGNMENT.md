@@ -61,26 +61,28 @@ Use the provided React + Vite template repository. It's already set up with Reac
 
 
 ### AI Usage
-You may use AI-generated code, but it must be customized and integrated.
-Blind copy-paste of raw AI output is not accepted.
-Bonus points for creative use of AI tools (e.g., simple API call, workflow automation).
-📦 Submissions
-Source code: GitHub repository link (README.md required)
-Executable demo:
-Web: Deployment link (use Vercel or Netlify or provider of your choice)
-Project Documentation:
-Fill in the readme file of your repository.
-📅 Schedule
-Assignment Open: September 8th
-Submission Deadline: September 15th (until 18:00)
-📌 Submission Instructions
-Keep pushing code to your repository — its latest state at the deadline is your submission.
-Fill in all required information in the README.md file of your repository, following the provided template.
-Submit before the deadline.
-⚠️ Important Notes
-This is an individual assignment.
-Code cannot be submitted after the deadline.Make sure all links in your README.md are accessible.
-Applicants must select a track when applying, track changes are not allowed after submission. Do not submit both an Android and a Web repository - if you create both, please delete one before the deadline. 
+- You may use AI-generated code, but it must be customized and integrated.
+- Blind copy-paste of raw AI output is not accepted.
+- Bonus points for creative use of AI tools (e.g., simple API call, workflow automation).
+
+### 📦 Submissions
+- Source code: GitHub repository link (README.md required)
+- Executable demo: Web: Deployment link (use Vercel or Netlify or provider of your choice)
+- Project Documentation: Fill in the readme file of your repository.
+
+### 📅 Schedule
+- Assignment Open: September 8th
+- Submission Deadline: September 15th (until 18:00)
+
+### 📌 Submission Instructions
+- Keep pushing code to your repository — its latest state at the deadline is your submission.
+- Fill in all required information in the README.md file of your repository, following the provided template.
+- Submit before the deadline.
+
+### ⚠️ Important Notes
+- This is an individual assignment.
+- Code cannot be submitted after the deadline.Make sure all links in your README.md are accessible.
+- Applicants must select a track when applying, track changes are not allowed after submission. Do not submit both an Android and a Web repository - if you create both, please delete one before the deadline. 
 
 
 ## 📊 How We'll Evaluate Your Submission
