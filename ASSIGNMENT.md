@@ -13,8 +13,6 @@
 
 **What We're Looking For:** We want to see how you approach problem-solving. A well-executed simple solution is better than an ambitious but broken one. That said, creativity and insight into real student needs will make you stand out.
 
-👉 Take a look at [this video made for you](https://drive.google.com/file/d/1ZgUdMR1JH8y4YZTJReodvZR22wxnyYoE/view?usp=sharing)
-
 ---
 
 ## 📋 Core Technical Requirements
