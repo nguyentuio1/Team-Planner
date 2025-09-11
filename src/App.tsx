@@ -1,22 +1,23 @@
-import './App.css'
-import hackathonGraphic from './assets/hackathon-graphic.svg'
-import naverLogo from './assets/naver-logo.svg'
+import React from 'react';
+import { Provider } from 'react-redux';
+import { useSelector } from 'react-redux';
+import { store } from './store';
+import type { RootState } from './store';
+import { Login } from './components/Login';
+import { Dashboard } from './pages/Dashboard';
+
+const AppContent: React.FC = () => {
+  const { isAuthenticated } = useSelector((state: RootState) => state.auth);
+
+  return isAuthenticated ? <Dashboard /> : <Login />;
+};
 
 function App() {
   return (
-    <div className="container">
-      <div className="content">
-        <img src={naverLogo} alt="NAVER Vietnam AI Hackathon" className="logo" />
-        
-        <div className="greeting">
-          <p className="hello">Xin chào! 안녕하세요!</p>
-          <p className="subtitle">Hello World</p>
-        </div>
-      </div>
-      
-      <img className="graphic" src={hackathonGraphic} alt="" />
-    </div>
-  )
+    <Provider store={store}>
+      <AppContent />
+    </Provider>
+  );
 }
 
-export default App
+export default App;
