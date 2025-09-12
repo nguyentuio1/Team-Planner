@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Check, X, Clock, UserPlus, Send } from 'lucide-react';
-import { dataService, type ProjectInvitation } from '../services/dataService';
+import { Mail, Check, X, Clock, UserPlus, Send, Copy, ExternalLink } from 'lucide-react';
+import { apiService } from '../services/apiService';
 import type { User } from '../types';
 
 interface InvitationManagerProps {
@@ -14,18 +14,23 @@ export const InvitationManager: React.FC<InvitationManagerProps> = ({
   projectId,
   onInvitationAccepted
 }) => {
-  const [pendingInvitations, setPendingInvitations] = useState<ProjectInvitation[]>([]);
+  const [pendingInvitations, setPendingInvitations] = useState<any[]>([]);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviting, setInviting] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string; link?: string } | null>(null);
 
   useEffect(() => {
     loadInvitations();
   }, [currentUser.email]);
 
-  const loadInvitations = () => {
-    const invitations = dataService.getInvitationsForEmail(currentUser.email);
-    setPendingInvitations(invitations);
+  const loadInvitations = async () => {
+    try {
+      const invitations = await apiService.getReceivedInvitations();
+      setPendingInvitations(invitations);
+    } catch (error) {
+      console.error('Failed to load invitations:', error);
+      setPendingInvitations([]);
+    }
   };
 
   const handleSendInvitation = async (e: React.FormEvent) => {
@@ -44,11 +49,15 @@ export const InvitationManager: React.FC<InvitationManagerProps> = ({
     setInviting(true);
     
     try {
-      await dataService.createInvitation(projectId, currentUser.userId, inviteEmail.trim());
+      const invitation = await apiService.sendInvitation(projectId, inviteEmail.trim());
+      
+      // Generate invitation link
+      const inviteLink = `${window.location.origin}${window.location.pathname}?invite=${invitation.invitation.id}`;
       
       setMessage({ 
         type: 'success', 
-        text: `Invitation sent to ${inviteEmail}. They will be able to access the project once they accept.` 
+        text: `Invitation created for ${inviteEmail}! Share the invitation link below:`,
+        link: inviteLink
       });
       setInviteEmail('');
       
@@ -67,15 +76,11 @@ export const InvitationManager: React.FC<InvitationManagerProps> = ({
 
   const handleAcceptInvitation = async (invitationId: string) => {
     try {
-      const accepted = dataService.acceptInvitation(invitationId, currentUser.userId);
+      const result = await apiService.acceptInvitation(invitationId);
       
-      if (accepted) {
-        setMessage({ type: 'success', text: 'Invitation accepted! You now have access to the project.' });
-        loadInvitations();
-        onInvitationAccepted();
-      } else {
-        setMessage({ type: 'error', text: 'Failed to accept invitation. It may have expired.' });
-      }
+      setMessage({ type: 'success', text: 'Invitation accepted! You now have access to the project.' });
+      loadInvitations();
+      onInvitationAccepted();
     } catch (error) {
       setMessage({ 
         type: 'error', 
@@ -86,14 +91,10 @@ export const InvitationManager: React.FC<InvitationManagerProps> = ({
 
   const handleRejectInvitation = async (invitationId: string) => {
     try {
-      const rejected = dataService.rejectInvitation(invitationId);
+      await apiService.rejectInvitation(invitationId);
       
-      if (rejected) {
-        setMessage({ type: 'success', text: 'Invitation rejected.' });
-        loadInvitations();
-      } else {
-        setMessage({ type: 'error', text: 'Failed to reject invitation.' });
-      }
+      setMessage({ type: 'success', text: 'Invitation rejected.' });
+      loadInvitations();
     } catch (error) {
       setMessage({ 
         type: 'error', 
@@ -102,9 +103,21 @@ export const InvitationManager: React.FC<InvitationManagerProps> = ({
     }
   };
 
-  const formatTimeLeft = (expiresAt: Date) => {
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setMessage(prev => prev ? { ...prev, text: prev.text + ' (Link copied!)' } : null);
+      setTimeout(() => {
+        setMessage(prev => prev ? { ...prev, text: prev.text.replace(' (Link copied!)', '') } : null);
+      }, 2000);
+    });
+  };
+
+  const formatTimeLeft = (expiresAt: Date | string) => {
     const now = new Date();
     const expires = new Date(expiresAt);
+    
+    if (isNaN(expires.getTime())) return 'Invalid date';
+    
     const diffMs = expires.getTime() - now.getTime();
     
     if (diffMs <= 0) return 'Expired';
@@ -119,14 +132,17 @@ export const InvitationManager: React.FC<InvitationManagerProps> = ({
     }
   };
 
+  const canInvite = projectId && projectId !== "";
+  
   return (
     <div className="space-y-6">
-      {/* Send Invitation Form */}
-      <div className="bg-white rounded-lg shadow-lg p-6">
-        <div className="flex items-center mb-4">
-          <UserPlus className="h-6 w-6 text-indigo-600 mr-2" />
-          <h3 className="text-lg font-semibold text-gray-900">Invite Team Member</h3>
-        </div>
+      {/* Send Invitation Form - only for project owners */}
+      {canInvite && (
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="flex items-center mb-4">
+            <UserPlus className="h-6 w-6 text-indigo-600 mr-2" />
+            <h3 className="text-lg font-semibold text-gray-900">Invite Team Member</h3>
+          </div>
 
         <form onSubmit={handleSendInvitation} className="space-y-4">
           <div>
@@ -165,11 +181,12 @@ export const InvitationManager: React.FC<InvitationManagerProps> = ({
 
         <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
           <p className="text-sm text-blue-800">
-            <strong>Privacy Note:</strong> Only invited members will be able to see this project and its tasks. 
-            The invitation will be valid for 7 days.
+            <strong>Real Team Invitations:</strong> Share the invitation link with team members. They'll create real accounts and join your project. 
+            All team members will see the same real team data. Invitations expire in 7 days.
           </p>
         </div>
-      </div>
+        </div>
+      )}
 
       {/* Pending Invitations */}
       {pendingInvitations.length > 0 && (
@@ -185,7 +202,7 @@ export const InvitationManager: React.FC<InvitationManagerProps> = ({
           <div className="space-y-4">
             {pendingInvitations.map((invitation) => (
               <div
-                key={invitation.invitationId}
+                key={invitation.id}
                 className="flex items-center justify-between p-4 border border-orange-200 rounded-lg bg-orange-50"
               >
                 <div className="flex items-center space-x-3">
@@ -194,28 +211,28 @@ export const InvitationManager: React.FC<InvitationManagerProps> = ({
                   </div>
                   <div>
                     <h4 className="text-sm font-medium text-gray-900">
-                      Project Invitation
+                      {invitation.project_title || 'Project Invitation'}
                     </h4>
                     <p className="text-sm text-gray-600">
-                      You've been invited to join a project
+                      Invited by {invitation.inviter_name || 'Unknown'} to join the project
                     </p>
                     <div className="flex items-center text-xs text-gray-500 mt-1">
                       <Clock className="h-3 w-3 mr-1" />
-                      {formatTimeLeft(invitation.expiresAt)}
+                      {formatTimeLeft(invitation.expires_at)}
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-center space-x-2">
                   <button
-                    onClick={() => handleAcceptInvitation(invitation.invitationId)}
+                    onClick={() => handleAcceptInvitation(invitation.id)}
                     className="inline-flex items-center px-3 py-1 text-xs font-medium text-green-700 bg-green-100 border border-green-200 rounded-md hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-green-500"
                   >
                     <Check className="h-3 w-3 mr-1" />
                     Accept
                   </button>
                   <button
-                    onClick={() => handleRejectInvitation(invitation.invitationId)}
+                    onClick={() => handleRejectInvitation(invitation.id)}
                     className="inline-flex items-center px-3 py-1 text-xs font-medium text-red-700 bg-red-100 border border-red-200 rounded-md hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500"
                   >
                     <X className="h-3 w-3 mr-1" />
@@ -228,6 +245,19 @@ export const InvitationManager: React.FC<InvitationManagerProps> = ({
         </div>
       )}
 
+      {/* No Invitations Message */}
+      {!canInvite && pendingInvitations.length === 0 && (
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="text-center py-8">
+            <Mail className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Pending Invitations</h3>
+            <p className="text-gray-600">
+              You don't have any pending team invitations at the moment.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Status Message */}
       {message && (
         <div className={`p-4 rounded-lg border ${
@@ -236,6 +266,33 @@ export const InvitationManager: React.FC<InvitationManagerProps> = ({
             : 'bg-red-50 border-red-200 text-red-800'
         }`}>
           <p className="text-sm">{message.text}</p>
+          
+          {message.link && (
+            <div className="mt-3 p-3 bg-white rounded-md border border-green-300">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-600 font-mono truncate mr-2">{message.link}</span>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => copyToClipboard(message.link!)}
+                    className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-100 border border-green-200 rounded hover:bg-green-200"
+                    title="Copy link"
+                  >
+                    <Copy className="h-3 w-3 mr-1" />
+                    Copy
+                  </button>
+                  <button
+                    onClick={() => window.open(message.link!, '_blank')}
+                    className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-100 border border-green-200 rounded hover:bg-green-200"
+                    title="Open link"
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    Open
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <button
             onClick={() => setMessage(null)}
             className="mt-2 text-xs underline hover:no-underline"

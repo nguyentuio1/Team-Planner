@@ -1,20 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Clock, User, Tag, Calendar, Edit, Star, Target, 
   Timer, AlertTriangle, CheckCircle, Circle
 } from 'lucide-react';
 import type { Task } from '../types';
 import { TaskEditor } from './TaskEditor';
+import { apiService } from '../services/apiService';
 
 interface TaskBoardProps {
   tasks: Task[];
   onTaskUpdate: (task: Task) => void;
+  onRefreshTasks?: () => void;
   teamMembers: { userId: string; name: string; role: string; email: string }[];
   currentUserId: string;
   isOwner: boolean;
 }
 
-export const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onTaskUpdate, teamMembers, currentUserId, isOwner }) => {
+export const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onTaskUpdate, onRefreshTasks, teamMembers, currentUserId, isOwner }) => {
+  
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const getTasksByStatus = (status: Task['status']) => {
     return tasks.filter(task => task.status === status);
@@ -46,22 +49,34 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onTaskUpdate, teamM
     }
   };
 
-  const handleStatusChange = (task: Task, newStatus: Task['status']) => {
-    const updatedTask = {
-      ...task,
-      status: newStatus,
-      updatedAt: new Date(),
-    };
-    onTaskUpdate(updatedTask);
+  const handleStatusChange = async (task: Task, newStatus: Task['status']) => {
+    try {
+      const updatedTask = await apiService.updateTask(task.id, { status: newStatus });
+      onTaskUpdate(updatedTask);
+      
+      // Auto-refresh tasks after successful update
+      if (onRefreshTasks) {
+        setTimeout(() => onRefreshTasks(), 100);
+      }
+    } catch (error) {
+      console.error('Failed to update task status:', error);
+    }
   };
 
-  const handleAssigneeChange = (task: Task, assigneeId: string) => {
-    const updatedTask = {
-      ...task,
-      assignee: assigneeId,
-      updatedAt: new Date(),
-    };
-    onTaskUpdate(updatedTask);
+  const handleAssigneeChange = async (task: Task, assigneeId: string) => {
+    try {
+      const updatedTask = await apiService.updateTask(task.id, { 
+        assigneeId: assigneeId || null 
+      });
+      onTaskUpdate(updatedTask);
+      
+      // Auto-refresh tasks after successful update
+      if (onRefreshTasks) {
+        setTimeout(() => onRefreshTasks(), 100);
+      }
+    } catch (error) {
+      console.error('Failed to update task assignee:', error);
+    }
   };
 
 
@@ -86,7 +101,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onTaskUpdate, teamM
   };
 
   const canEditTask = (task: Task) => {
-    return isOwner || task.assignee === currentUserId;
+    return isOwner || task.assignee_id === currentUserId;
   };
 
   const formatTimeSpent = (minutes?: number) => {
@@ -100,7 +115,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onTaskUpdate, teamM
   };
 
   const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
-    const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'completed';
+    const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'completed';
     
     return (
       <div 
@@ -209,10 +224,10 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onTaskUpdate, teamM
                 <span>{task.estimate}</span>
               </div>
             )}
-            {task.timeSpent && task.timeSpent > 0 && (
+            {task.time_spent && task.time_spent > 0 && (
               <div className="flex items-center text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
                 <Timer className="h-3 w-3 mr-1" />
-                <span>{formatTimeSpent(task.timeSpent)}</span>
+                <span>{formatTimeSpent(task.time_spent)}</span>
               </div>
             )}
           </div>
@@ -221,7 +236,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onTaskUpdate, teamM
           <div className="flex items-center text-xs">
             <User className="h-3 w-3 mr-1 text-gray-500" />
             <select
-              value={task.assignee || ''}
+              value={task.assignee_id || ''}
               onChange={(e) => {
                 e.stopPropagation();
                 handleAssigneeChange(task, e.target.value);
@@ -231,7 +246,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onTaskUpdate, teamM
             >
               <option value="">Unassigned</option>
               {teamMembers.map(member => (
-                <option key={member.userId} value={member.userId}>
+                <option key={member.id} value={member.id}>
                   {member.name}
                 </option>
               ))}
@@ -239,10 +254,10 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onTaskUpdate, teamM
           </div>
 
           {/* Due Date */}
-          {task.dueDate && (
+          {task.due_date && (
             <div className={`flex items-center text-xs ${isOverdue ? 'text-red-600' : 'text-gray-500'}`}>
               <Calendar className="h-3 w-3 mr-1" />
-              <span>{new Date(task.dueDate).toLocaleDateString()}</span>
+              <span>{new Date(task.due_date).toLocaleDateString()}</span>
               {isOverdue && <span className="ml-1 font-medium">(Overdue)</span>}
             </div>
           )}
@@ -312,7 +327,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onTaskUpdate, teamM
               
               <div className="space-y-3">
                 {getTasksByStatus(status).map(task => (
-                  <TaskCard key={task.taskId} task={task} />
+                  <TaskCard key={task.id} task={task} />
                 ))}
                 
                 {getTasksByStatus(status).length === 0 && (

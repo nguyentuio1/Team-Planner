@@ -130,16 +130,22 @@ class DataService {
       throw new Error('Project not found or access denied');
     }
     
-    if (project.ownerId !== inviterUserId) {
-      throw new Error('Only the project owner can invite members');
+    if (project.ownerId !== inviterUserId && !project.settings?.allowMemberInvite) {
+      throw new Error('You do not have permission to invite members');
     }
 
     const invitations = this.getFromStorage<ProjectInvitation>(STORAGE_KEYS.INVITATIONS);
     
+    // Check if user is already a member
+    const existingUser = this.findUserByEmail(inviteeEmail);
+    if (existingUser && project.members.includes(existingUser.userId)) {
+      throw new Error('This user is already a member of the project');
+    }
+    
     // Check if invitation already exists
     const existingInvitation = invitations.find(
       inv => inv.projectId === projectId && 
-             inv.inviteeEmail === inviteeEmail && 
+             inv.inviteeEmail.toLowerCase() === inviteeEmail.toLowerCase() && 
              inv.status === 'pending'
     );
     
@@ -151,7 +157,7 @@ class DataService {
       invitationId: this.generateId(),
       projectId,
       inviterUserId,
-      inviteeEmail,
+      inviteeEmail: inviteeEmail.toLowerCase(),
       status: 'pending',
       createdAt: new Date(),
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
@@ -172,17 +178,47 @@ class DataService {
     );
   }
 
-  acceptInvitation(invitationId: string, userId: string): boolean {
+  acceptInvitation(invitationId: string, userEmail: string, userData?: { name: string; role: User['role'] }): { success: boolean; userId?: string; error?: string } {
     const invitations = this.getFromStorage<ProjectInvitation>(STORAGE_KEYS.INVITATIONS);
     const invitationIndex = invitations.findIndex(inv => inv.invitationId === invitationId);
     
-    if (invitationIndex === -1) return false;
+    if (invitationIndex === -1) {
+      return { success: false, error: 'Invitation not found' };
+    }
     
     const invitation = invitations[invitationIndex];
     
     // Check if invitation is still valid
-    if (invitation.status !== 'pending' || new Date(invitation.expiresAt) <= new Date()) {
-      return false;
+    if (invitation.status !== 'pending') {
+      return { success: false, error: 'Invitation already processed' };
+    }
+    
+    if (new Date(invitation.expiresAt) <= new Date()) {
+      return { success: false, error: 'Invitation has expired' };
+    }
+
+    // Verify the email matches
+    if (invitation.inviteeEmail !== userEmail.toLowerCase()) {
+      return { success: false, error: 'Email does not match invitation' };
+    }
+
+    // Find or create user account
+    let user = this.findUserByEmail(userEmail);
+    if (!user && userData) {
+      try {
+        const newUser = this.registerUser({
+          name: userData.name,
+          email: userEmail,
+          role: userData.role
+        });
+        user = this.getUserSession(newUser.userId);
+      } catch (error) {
+        return { success: false, error: 'Failed to create user account' };
+      }
+    }
+
+    if (!user) {
+      return { success: false, error: 'User account not found and no registration data provided' };
     }
 
     // Update invitation status
@@ -194,14 +230,14 @@ class DataService {
     const projectIndex = projects.findIndex(p => p.projectId === invitation.projectId);
     
     if (projectIndex !== -1) {
-      if (!projects[projectIndex].members.includes(userId)) {
-        projects[projectIndex].members.push(userId);
+      if (!projects[projectIndex].members.includes(user.userId)) {
+        projects[projectIndex].members.push(user.userId);
         projects[projectIndex].updatedAt = new Date();
         this.saveToStorage(STORAGE_KEYS.PROJECTS, projects);
       }
     }
 
-    return true;
+    return { success: true, userId: user.userId };
   }
 
   rejectInvitation(invitationId: string): boolean {
@@ -214,6 +250,26 @@ class DataService {
     this.saveToStorage(STORAGE_KEYS.INVITATIONS, invitations);
     
     return true;
+  }
+
+  getInvitationDetails(invitationId: string): (ProjectInvitation & { projectTitle?: string; inviterName?: string }) | null {
+    const invitations = this.getFromStorage<ProjectInvitation>(STORAGE_KEYS.INVITATIONS);
+    const invitation = invitations.find(inv => inv.invitationId === invitationId);
+    
+    if (!invitation) return null;
+
+    // Get project details
+    const projects = this.getFromStorage<Project>(STORAGE_KEYS.PROJECTS);
+    const project = projects.find(p => p.projectId === invitation.projectId);
+    
+    // Get inviter details
+    const inviter = this.getUserById(invitation.inviterUserId);
+    
+    return {
+      ...invitation,
+      projectTitle: project?.title,
+      inviterName: inviter?.name
+    };
   }
 
   // ========== USER SESSION METHODS ==========
@@ -237,6 +293,40 @@ class DataService {
     this.saveToStorage(STORAGE_KEYS.USER_SESSIONS, filteredSessions);
     
     return session;
+  }
+
+  // ========== USER MANAGEMENT ==========
+  findUserByEmail(email: string): UserSession | null {
+    const sessions = this.getFromStorage<UserSession>(STORAGE_KEYS.USER_SESSIONS);
+    return sessions.find(s => s.email.toLowerCase() === email.toLowerCase()) || null;
+  }
+
+  registerUser(userData: { name: string; email: string; role: User['role'] }): User {
+    const existingUser = this.findUserByEmail(userData.email);
+    if (existingUser) {
+      throw new Error('User with this email already exists');
+    }
+
+    const newUser: User = {
+      userId: this.generateId(),
+      name: userData.name,
+      email: userData.email.toLowerCase(),
+      role: userData.role,
+    };
+
+    // Create a user session to track this user
+    this.createUserSession(newUser);
+    
+    return newUser;
+  }
+
+  getAllUsers(): UserSession[] {
+    return this.getFromStorage<UserSession>(STORAGE_KEYS.USER_SESSIONS);
+  }
+
+  getUserById(userId: string): UserSession | null {
+    const sessions = this.getFromStorage<UserSession>(STORAGE_KEYS.USER_SESSIONS);
+    return sessions.find(s => s.userId === userId) || null;
   }
 
   getUserSession(userId: string): UserSession | null {
@@ -388,6 +478,79 @@ class DataService {
   }
 
   // ========== MEMBER MANAGEMENT ==========
+  addMemberToProject(projectId: string, memberEmail: string, memberData: { name: string; role: User['role'] }, currentUserId: string): User {
+    const project = this.getProject(projectId, currentUserId);
+    if (!project) {
+      throw new Error('Project not found or access denied');
+    }
+
+    // Only owner can add members directly
+    if (project.ownerId !== currentUserId) {
+      throw new Error('Only the project owner can add members');
+    }
+
+    // Check if user already exists
+    let user = this.findUserByEmail(memberEmail);
+    
+    if (!user) {
+      // Register new user
+      const newUserData = this.registerUser({
+        name: memberData.name,
+        email: memberEmail,
+        role: memberData.role
+      });
+      user = this.getUserSession(newUserData.userId);
+    }
+
+    if (!user) {
+      throw new Error('Failed to create or find user');
+    }
+
+    // Check if user is already a member
+    if (project.members.includes(user.userId)) {
+      throw new Error('User is already a member of this project');
+    }
+
+    // Add user to project
+    const projects = this.getFromStorage<Project>(STORAGE_KEYS.PROJECTS);
+    const projectIndex = projects.findIndex(p => p.projectId === projectId);
+    
+    if (projectIndex !== -1) {
+      projects[projectIndex].members.push(user.userId);
+      projects[projectIndex].updatedAt = new Date();
+      this.saveToStorage(STORAGE_KEYS.PROJECTS, projects);
+    }
+
+    return {
+      userId: user.userId,
+      name: user.name,
+      email: user.email,
+      role: user.role
+    };
+  }
+
+  getProjectMembers(projectId: string, currentUserId: string): User[] {
+    const project = this.getProject(projectId, currentUserId);
+    if (!project) return [];
+
+    const allUsers = this.getAllUsers();
+    const members: User[] = [];
+
+    project.members.forEach(memberId => {
+      const userSession = allUsers.find(u => u.userId === memberId);
+      if (userSession) {
+        members.push({
+          userId: userSession.userId,
+          name: userSession.name,
+          email: userSession.email,
+          role: userSession.role
+        });
+      }
+    });
+
+    return members;
+  }
+
   removeMember(projectId: string, memberUserId: string, currentUserId: string): boolean {
     const project = this.getProject(projectId, currentUserId);
     if (!project) return false;
@@ -418,6 +581,10 @@ class DataService {
   }
 
   // ========== UTILITY METHODS ==========
+  getFromStoragePublic<T>(key: string): T[] {
+    return this.getFromStorage<T>(key);
+  }
+
   clearAllData(): void {
     Object.values(STORAGE_KEYS).forEach(key => {
       localStorage.removeItem(key);

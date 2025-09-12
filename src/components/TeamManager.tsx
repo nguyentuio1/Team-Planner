@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { UserPlus, Users, Mail, X, Crown, Shield, Clock } from 'lucide-react';
+import { UserPlus, Users, Mail, X, Crown, Shield, Clock, AlertCircle } from 'lucide-react';
+import { apiService } from '../services/apiService';
 import type { User } from '../types';
 
 interface TeamManagerProps {
@@ -8,6 +9,8 @@ interface TeamManagerProps {
   onRemoveMember: (userId: string) => void;
   currentUserId: string;
   ownerId?: string;
+  projectId: string;
+  onTeamUpdate: () => void;
 }
 
 export const TeamManager: React.FC<TeamManagerProps> = ({
@@ -16,6 +19,8 @@ export const TeamManager: React.FC<TeamManagerProps> = ({
   onRemoveMember,
   currentUserId,
   ownerId,
+  projectId,
+  onTeamUpdate,
 }) => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newMember, setNewMember] = useState({
@@ -23,27 +28,28 @@ export const TeamManager: React.FC<TeamManagerProps> = ({
     email: '',
     role: 'general' as User['role'],
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!newMember.name.trim() || !newMember.email.trim()) return;
 
-    const member: User = {
-      userId: Math.random().toString(36).substr(2, 9),
-      name: newMember.name.trim(),
-      email: newMember.email.trim(),
-      role: newMember.role,
-    };
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
 
-    onAddMember(member);
-    
-    setNewMember({
-      name: '',
-      email: '',
-      role: 'general',
-    });
-    setShowAddForm(false);
+    try {
+      // For now, we'll show a message that team members should use the invitation system
+      setError('Please use the "Invite Members" tab to send real invitations to team members. They need to accept invitations to join the team.');
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add team member');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getRoleColor = (role: User['role']) => {
@@ -78,19 +84,19 @@ export const TeamManager: React.FC<TeamManagerProps> = ({
     }
   };
 
-  const isOwner = (userId: string) => {
-    return ownerId === userId;
+  const isOwner = (member: any) => {
+    return member.isOwner === true || ownerId === member.id;
   };
 
   const isCurrentUser = (userId: string) => {
     return currentUserId === userId;
   };
 
-  const getMemberStatus = (member: User) => {
-    if (isOwner(member.userId)) {
+  const getMemberStatus = (member: any) => {
+    if (isOwner(member)) {
       return { label: 'Owner', icon: <Crown className="h-3 w-3" />, color: 'text-yellow-600 bg-yellow-50' };
     }
-    if (isCurrentUser(member.userId)) {
+    if (isCurrentUser(member.id)) {
       return { label: 'You', icon: <Shield className="h-3 w-3" />, color: 'text-blue-600 bg-blue-50' };
     }
     return null;
@@ -98,10 +104,10 @@ export const TeamManager: React.FC<TeamManagerProps> = ({
 
   // Sort members: owner first, then current user, then others alphabetically
   const sortedMembers = [...teamMembers].sort((a, b) => {
-    if (isOwner(a.userId)) return -1;
-    if (isOwner(b.userId)) return 1;
-    if (isCurrentUser(a.userId)) return -1;
-    if (isCurrentUser(b.userId)) return 1;
+    if (isOwner(a)) return -1;
+    if (isOwner(b)) return 1;
+    if (isCurrentUser(a.id)) return -1;
+    if (isCurrentUser(b.id)) return 1;
     return a.name.localeCompare(b.name);
   });
 
@@ -116,7 +122,7 @@ export const TeamManager: React.FC<TeamManagerProps> = ({
           </span>
         </div>
         
-        {(isOwner(currentUserId)) && (
+        {(ownerId === currentUserId) && (
           <button
             onClick={() => setShowAddForm(!showAddForm)}
             className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
@@ -183,21 +189,75 @@ export const TeamManager: React.FC<TeamManagerProps> = ({
             <div className="flex justify-end space-x-3">
               <button
                 type="button"
-                onClick={() => setShowAddForm(false)}
+                onClick={() => {
+                  setShowAddForm(false);
+                  setError(null);
+                  setSuccess(null);
+                }}
                 className="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                disabled={loading}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-3 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+                disabled={loading || !newMember.name.trim() || !newMember.email.trim()}
+                className="px-3 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Add Member
+                {loading ? (
+                  <>
+                    <div className="animate-spin -ml-1 mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full inline-block"></div>
+                    Adding...
+                  </>
+                ) : (
+                  'Add Member'
+                )}
               </button>
             </div>
           </form>
+
+          {/* Status Messages */}
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-center">
+              <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
+              <p className="text-sm text-red-800">{error}</p>
+              <button
+                onClick={() => setError(null)}
+                className="ml-auto text-red-400 hover:text-red-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
+          {success && (
+            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md flex items-center">
+              <div className="h-5 w-5 text-green-600 mr-2">✓</div>
+              <p className="text-sm text-green-800">{success}</p>
+              <button
+                onClick={() => setSuccess(null)}
+                className="ml-auto text-green-400 hover:text-green-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
         </div>
       )}
+
+      {/* Information Note */}
+      <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-6">
+        <div className="flex items-start">
+          <Shield className="h-5 w-5 text-indigo-600 mr-2 mt-0.5" />
+          <div>
+            <h4 className="text-sm font-medium text-indigo-900 mb-1">Real Team Management</h4>
+            <p className="text-sm text-indigo-800">
+              All team members have real accounts with unique IDs. When you add someone, they can independently log in and access this project. 
+              Existing users are recognized by email and added to the team. Each member sees the same real team data.
+            </p>
+          </div>
+        </div>
+      </div>
 
       {/* Team Overview Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -207,7 +267,7 @@ export const TeamManager: React.FC<TeamManagerProps> = ({
             <div>
               <p className="text-sm font-medium text-gray-700">Team Owner</p>
               <p className="text-lg font-semibold text-gray-900">
-                {ownerId ? teamMembers.find(m => m.userId === ownerId)?.name || 'Unknown' : 'Not Set'}
+                {teamMembers.find(m => isOwner(m))?.name || 'Unknown'}
               </p>
             </div>
           </div>
@@ -239,25 +299,25 @@ export const TeamManager: React.FC<TeamManagerProps> = ({
           const status = getMemberStatus(member);
           return (
             <div
-              key={member.userId}
+              key={member.id}
               className={`flex items-center justify-between p-4 border-2 rounded-lg transition-all hover:bg-gray-50 ${
-                isOwner(member.userId) 
+                isOwner(member) 
                   ? 'border-yellow-200 bg-yellow-50' 
-                  : isCurrentUser(member.userId)
+                  : isCurrentUser(member.id)
                   ? 'border-blue-200 bg-blue-50'
                   : 'border-gray-200'
               }`}
             >
               <div className="flex items-center space-x-4">
                 <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-medium ${
-                  isOwner(member.userId) 
+                  isOwner(member) 
                     ? 'bg-gradient-to-r from-yellow-500 to-orange-500' 
-                    : isCurrentUser(member.userId)
+                    : isCurrentUser(member.id)
                     ? 'bg-gradient-to-r from-blue-500 to-indigo-500'
                     : 'bg-gradient-to-r from-gray-500 to-gray-600'
                 }`}>
-                  {isOwner(member.userId) && <Crown className="h-5 w-5" />}
-                  {!isOwner(member.userId) && (
+                  {isOwner(member) && <Crown className="h-5 w-5" />}
+                  {!isOwner(member) && (
                     <span className="text-sm">
                       {member.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                     </span>
@@ -280,15 +340,19 @@ export const TeamManager: React.FC<TeamManagerProps> = ({
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(member.role)}`}>
                       {getRoleLabel(member.role)}
                     </span>
+                    <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      <div className="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
+                      Real Account
+                    </span>
                   </div>
                 </div>
               </div>
               
               <div className="flex items-center space-x-2">
                 {/* Only owner can remove other members, and members can't remove the owner */}
-                {isOwner(currentUserId) && !isOwner(member.userId) && (
+                {(ownerId === currentUserId) && !isOwner(member) && (
                   <button
-                    onClick={() => onRemoveMember(member.userId)}
+                    onClick={() => onRemoveMember(member.id)}
                     className="text-gray-400 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition-colors"
                     title="Remove member"
                   >
@@ -299,7 +363,7 @@ export const TeamManager: React.FC<TeamManagerProps> = ({
                 {/* Show member joined info */}
                 <div className="text-right">
                   <p className="text-xs text-gray-400">
-                    {isOwner(member.userId) ? 'Team Owner' : 'Team Member'}
+                    {isOwner(member) ? 'Team Owner' : 'Team Member'}
                   </p>
                 </div>
               </div>
@@ -312,7 +376,7 @@ export const TeamManager: React.FC<TeamManagerProps> = ({
             <Users className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No team members yet</h3>
             <p className="text-gray-500 mb-4">Add team members to start collaborating on your project!</p>
-            {isOwner(currentUserId) && (
+            {(ownerId === currentUserId) && (
               <button
                 onClick={() => setShowAddForm(true)}
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"

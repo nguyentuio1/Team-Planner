@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { loginStart, loginSuccess, loginFailure } from '../store/slices/authSlice';
-import { dataService } from '../services/dataService';
+import { apiService } from '../services/apiService';
 import type { User } from '../types';
 
 export const Login: React.FC = () => {
@@ -17,20 +17,26 @@ export const Login: React.FC = () => {
     dispatch(loginStart());
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      let result: { user: User; token: string };
       
-      const user: User = {
-        userId: isSignup ? `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` : `existing_${email.replace('@', '_').replace('.', '_')}`,
-        name: isSignup ? name : (email.split('@')[0] || 'User'),
-        email,
-        role: isSignup ? role : 'general',
-      };
+      if (isSignup) {
+        // Create new user account
+        result = await apiService.register({
+          name: name,
+          email: email.toLowerCase(),
+          password: password,
+          role: role
+        });
+      } else {
+        // Login existing user
+        result = await apiService.login({
+          email: email.toLowerCase(),
+          password: password
+        });
+      }
 
-      // Create or update user session
-      dataService.createUserSession(user);
-
-      dispatch(loginSuccess(user));
-    } catch {
+      dispatch(loginSuccess(result.user));
+    } catch (error) {
       dispatch(loginFailure('Login failed. Please try again.'));
     }
   };

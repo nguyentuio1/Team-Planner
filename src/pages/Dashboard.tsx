@@ -3,11 +3,15 @@ import { useSelector, useDispatch } from 'react-redux';
 import { BarChart3, Target, CheckSquare, Clock, LogOut, Crown, Shield, Plus, Mail } from 'lucide-react';
 import type { RootState } from '../store';
 import { logout } from '../store/slices/authSlice';
-import { dataService } from '../services/dataService';
+import { apiService } from '../services/apiService';
 import { GoalInput } from '../components/GoalInput';
 import { TaskBoard } from '../components/TaskBoard';
 import { InvitationManager } from '../components/InvitationManager';
 import { TaskAnalytics } from '../components/TaskAnalytics';
+import { TeamManager } from '../components/TeamManager';
+import { DemoInstructions } from '../components/DemoInstructions';
+import { DebugPanel } from '../components/DebugPanel';
+import InvitationNotifications from '../components/InvitationNotifications';
 import type { AITaskBreakdown, Task, User, Project } from '../types';
 
 export const Dashboard: React.FC = () => {
@@ -20,6 +24,7 @@ export const Dashboard: React.FC = () => {
   const [projectTasks, setProjectTasks] = useState<Task[]>([]);
   const [teamMembers, setTeamMembers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pendingInvitationsCount, setPendingInvitationsCount] = useState(0);
 
   useEffect(() => {
     if (user) {
@@ -33,7 +38,7 @@ export const Dashboard: React.FC = () => {
     setLoading(true);
     try {
       // Load user's accessible projects
-      const projects = dataService.getProjectsByUser(user.userId);
+      const projects = await apiService.getProjects();
       setUserProjects(projects);
       
       // If no projects, stay on projects view to create one
@@ -42,8 +47,11 @@ export const Dashboard: React.FC = () => {
       } else {
         // Load the first project by default
         const firstProject = projects[0];
-        await loadProject(firstProject.projectId);
+        await loadProject(firstProject.id);
+        setCurrentView('goal');
       }
+    } catch (error) {
+      console.error('Failed to load user data:', error);
     } finally {
       setLoading(false);
     }
@@ -53,40 +61,39 @@ export const Dashboard: React.FC = () => {
     if (!user) return;
     
     try {
-      const project = dataService.getProject(projectId, user.userId);
-      if (!project) {
-        throw new Error('Project not found or access denied');
-      }
-      
+      const project = await apiService.getProject(projectId);
       setCurrentProject(project);
       
       // Load project tasks
-      const tasks = dataService.getTasksByProject(projectId, user.userId);
+      const tasks = await apiService.getTasks(projectId);
       setProjectTasks(tasks);
       
-      // Load team members (mock data for now, in real app would fetch user details)
-      const members: User[] = [
-        user, // Current user
-        ...project.members
-          .filter(memberId => memberId !== user.userId)
-          .map(memberId => ({
-            userId: memberId,
-            name: `User ${memberId.slice(-4)}`,
-            email: `user${memberId.slice(-4)}@example.com`,
-            role: 'general' as User['role']
-          }))
-      ];
-      setTeamMembers(members);
+      // Load team members from project data (already included in project response)
+      const projectMembers = project.members || [];
+      setTeamMembers(projectMembers);
+      
+      // Load pending invitations count
+      const invitations = await apiService.getReceivedInvitations();
+      setPendingInvitationsCount(invitations.length);
       
     } catch (error) {
       console.error('Failed to load project:', error);
     }
   };
 
-  const handleLogout = () => {
-    if (user) {
-      dataService.logoutUser(user.userId);
+  const refreshTasks = async () => {
+    if (!currentProject) return;
+    
+    try {
+      const tasks = await apiService.getTasks(currentProject.id);
+      setProjectTasks(tasks);
+    } catch (error) {
+      console.error('Failed to refresh tasks:', error);
     }
+  };
+
+  const handleLogout = () => {
+    apiService.clearToken();
     dispatch(logout());
   };
 
@@ -94,15 +101,18 @@ export const Dashboard: React.FC = () => {
     if (!user) return;
     
     try {
-      const newProject = dataService.createProject({
+      const newProject = await apiService.createProject({
         title,
         description,
-        ownerId: user.userId,
-        members: [user.userId],
+        settings: {
+          allowMemberTaskEdit: true,
+          allowMemberTaskCreate: false,
+          allowMemberInvite: false
+        }
       });
       
       setUserProjects([...userProjects, newProject]);
-      await loadProject(newProject.projectId);
+      await loadProject(newProject.id);
       setCurrentView('goal');
     } catch (error) {
       console.error('Failed to create project:', error);
@@ -113,10 +123,11 @@ export const Dashboard: React.FC = () => {
     if (!user || !currentProject) return;
 
     try {
-      breakdown.milestones.forEach((milestone, milestoneIndex) => {
-        milestone.tasks.forEach((taskData, taskIndex) => {
+      // Create all tasks sequentially to avoid race conditions
+      for (const milestone of breakdown.milestones) {
+        for (const taskData of milestone.tasks) {
           const taskToCreate = {
-            projectId: currentProject.projectId,
+            projectId: currentProject.id,
             title: taskData.title,
             description: taskData.description,
             status: 'pending' as const,
@@ -137,16 +148,16 @@ export const Dashboard: React.FC = () => {
           if (taskData.suggestedRole) {
             const suggestedMember = teamMembers.find(m => m.role === taskData.suggestedRole);
             if (suggestedMember) {
-              (taskToCreate as any).assignee = suggestedMember.userId;
+              (taskToCreate as any).assignee = suggestedMember.id;
             }
           }
 
-          dataService.createTask(taskToCreate, user.userId);
-        });
-      });
+          await apiService.createTask(taskToCreate);
+        }
+      }
 
       // Reload tasks
-      const tasks = dataService.getTasksByProject(currentProject.projectId, user.userId);
+      const tasks = await apiService.getTasks(currentProject.id);
       setProjectTasks(tasks);
       setCurrentView('tasks');
     } catch (error) {
@@ -155,23 +166,24 @@ export const Dashboard: React.FC = () => {
   };
 
   const handleTaskUpdate = async (updatedTask: Task) => {
-    if (!user) return;
+    if (!user || !currentProject) return;
     
     try {
-      dataService.updateTask(updatedTask.taskId, updatedTask, user.userId);
+      await apiService.updateTask(updatedTask.id, updatedTask);
       
       // Reload tasks
-      if (currentProject) {
-        const tasks = dataService.getTasksByProject(currentProject.projectId, user.userId);
-        setProjectTasks(tasks);
-      }
+      const tasks = await apiService.getTasks(currentProject.id);
+      setProjectTasks(tasks);
     } catch (error) {
       console.error('Failed to update task:', error);
     }
   };
 
   const handleInvitationAccepted = () => {
-    loadUserData(); // Reload all data when invitation is accepted
+    // Reload all data when invitation is accepted
+    loadUserData(); 
+    // Switch to projects view to see newly accessible projects
+    setCurrentView('projects');
   };
 
   const getProgressStats = () => {
@@ -192,7 +204,7 @@ export const Dashboard: React.FC = () => {
 
   const stats = getProgressStats();
   
-  const isOwner = currentProject && user && currentProject.ownerId === user.userId;
+  const isOwner = currentProject && user && currentProject.owner_id === user.id;
 
   if (loading) {
     return (
@@ -205,8 +217,8 @@ export const Dashboard: React.FC = () => {
     );
   }
 
-  // Projects Selection View
-  if (currentView === 'projects' || userProjects.length === 0) {
+  // Projects Selection View - only show if explicitly on projects view OR no projects exist AND not currently viewing a loaded project
+  if (currentView === 'projects' || (userProjects.length === 0 && !currentProject)) {
     return (
       <div className="min-h-screen bg-gray-50">
         <header className="bg-white shadow-sm border-b border-gray-200">
@@ -237,10 +249,14 @@ export const Dashboard: React.FC = () => {
             <p className="text-lg text-gray-600">Select a project to work on, or create a new one</p>
           </div>
 
-          <InvitationManager
-            currentUser={user!}
-            projectId=""
-            onInvitationAccepted={handleInvitationAccepted}
+          <InvitationNotifications
+            user={user!}
+            onInvitationAccepted={(projectId) => {
+              // Refresh projects list and navigate to the accepted project
+              loadUserData();
+              loadProject(projectId);
+              setCurrentView('goal');
+            }}
           />
 
           {/* Existing Projects */}
@@ -250,20 +266,23 @@ export const Dashboard: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {userProjects.map((project) => (
                   <div
-                    key={project.projectId}
-                    onClick={() => loadProject(project.projectId)}
+                    key={project.id}
+                    onClick={() => {
+                      loadProject(project.id);
+                      setCurrentView('goal');
+                    }}
                     className="bg-white rounded-lg shadow-md p-6 cursor-pointer hover:shadow-lg transition-shadow border-l-4 border-l-indigo-500"
                   >
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="text-lg font-semibold text-gray-900">{project.title}</h4>
-                      {project.ownerId === user?.userId && (
+                      {project.owner_id === user?.id && (
                         <Crown className="h-5 w-5 text-yellow-500" />
                       )}
                     </div>
                     <p className="text-gray-600 mb-3">{project.description}</p>
                     <div className="flex items-center text-sm text-gray-500">
                       <Clock className="h-4 w-4 mr-1" />
-                      {project.members.length} member{project.members.length !== 1 ? 's' : ''}
+                      {project.members?.length || 0} member{(project.members?.length || 0) !== 1 ? 's' : ''}
                     </div>
                   </div>
                 ))}
@@ -407,13 +426,12 @@ export const Dashboard: React.FC = () => {
             icon={<BarChart3 className="h-4 w-4" />} 
             label="Analytics" 
           />
-          {isOwner && (
-            <NavButton 
-              view="invitations" 
-              icon={<Mail className="h-4 w-4" />} 
-              label="Invite Members" 
-            />
-          )}
+          <NavButton 
+            view="invitations" 
+            icon={<Mail className="h-4 w-4" />} 
+            label={isOwner ? "Invite Members" : "My Invitations"}
+            count={!isOwner ? pendingInvitationsCount : undefined}
+          />
           <NavButton 
             view="team" 
             icon={<Shield className="h-4 w-4" />} 
@@ -434,8 +452,9 @@ export const Dashboard: React.FC = () => {
             <TaskBoard 
               tasks={projectTasks}
               onTaskUpdate={handleTaskUpdate}
-              teamMembers={teamMembers.map(m => ({ userId: m.userId, name: m.name, role: m.role, email: m.email }))}
-              currentUserId={user?.userId || ''}
+              onRefreshTasks={refreshTasks}
+              teamMembers={teamMembers.map(m => ({ userId: m.id, name: m.name, role: m.role, email: m.email }))}
+              currentUserId={user?.id || ''}
               isOwner={isOwner || false}
             />
           )}
@@ -444,15 +463,15 @@ export const Dashboard: React.FC = () => {
             <TaskAnalytics 
               tasks={projectTasks}
               teamMembers={teamMembers}
-              currentUserId={user?.userId}
-              ownerId={currentProject.ownerId}
+              currentUserId={user?.id}
+              ownerId={currentProject.owner_id}
             />
           )}
 
-          {currentView === 'invitations' && currentProject && isOwner && (
+          {currentView === 'invitations' && currentProject && (
             <InvitationManager
               currentUser={user!}
-              projectId={currentProject.projectId}
+              projectId={isOwner ? currentProject.id : ""}
               onInvitationAccepted={handleInvitationAccepted}
             />
           )}
@@ -460,10 +479,17 @@ export const Dashboard: React.FC = () => {
           {currentView === 'team' && currentProject && (
             <TeamManager
               teamMembers={teamMembers}
-              onAddMember={() => {}} // Disabled, use invitations instead
-              onRemoveMember={(userId) => dataService.removeMember(currentProject.projectId, userId, user?.userId || '')}
-              currentUserId={user?.userId || ''}
-              ownerId={currentProject.ownerId}
+              onAddMember={(member: User) => {
+                setTeamMembers([...teamMembers, member]);
+              }}
+              onRemoveMember={(userId: string) => {
+                apiService.removeMember(currentProject.id, userId);
+                setTeamMembers(teamMembers.filter(m => m.id !== userId));
+              }}
+              currentUserId={user?.id || ''}
+              ownerId={currentProject.owner_id}
+              projectId={currentProject.id}
+              onTeamUpdate={() => loadProject(currentProject.id)}
             />
           )}
 
@@ -484,6 +510,12 @@ export const Dashboard: React.FC = () => {
             </div>
           )}
         </div>
+        
+        {/* Demo Instructions */}
+        <DemoInstructions />
+        
+        {/* Debug Panel */}
+        <DebugPanel />
       </div>
     </div>
   );
