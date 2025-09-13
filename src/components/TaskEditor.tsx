@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  X, Save, Clock, Calendar, User, Tag, Palette, 
-  Bold, Italic, Underline, Type, AlignLeft, 
-  CheckSquare, List, Code, Quote, Plus,
+  X, Save, Calendar, Palette, 
+  Bold, Italic, Type, AlignLeft, 
+  CheckSquare, List, Code, Quote,
   Star, Timer, Target, Trash2
 } from 'lucide-react';
 import type { Task, User as UserType, ContentBlock } from '../types';
@@ -22,9 +22,7 @@ export const TaskEditor: React.FC<TaskEditorProps> = ({
   onSave,
   onDelete,
   onClose,
-  teamMembers,
-  isOwner,
-  canEdit
+  teamMembers
 }) => {
   const [editedTask, setEditedTask] = useState<Task | null>(null);
   const [activeTab, setActiveTab] = useState<'content' | 'details' | 'success' | 'style'>('content');
@@ -197,7 +195,7 @@ export const TaskEditor: React.FC<TaskEditorProps> = ({
         </div>
 
         <div className="space-y-3 max-h-96 overflow-y-auto border rounded-lg p-4">
-          {editedTask.richContent?.blocks.map((block, index) => (
+          {editedTask.richContent?.blocks.map((block) => (
             <div key={block.id} className="group relative">
               <div className="flex items-start space-x-2">
                 <div className="flex-1">
@@ -320,8 +318,8 @@ export const TaskEditor: React.FC<TaskEditorProps> = ({
           </label>
           <input
             type="datetime-local"
-            value={editedTask.dueDate ? new Date(editedTask.dueDate).toISOString().slice(0, 16) : ''}
-            onChange={(e) => updateTask({ dueDate: e.target.value ? new Date(e.target.value) : undefined })}
+            value={editedTask.due_date ? new Date(editedTask.due_date).toISOString().slice(0, 16) : ''}
+            onChange={(e) => updateTask({ due_date: e.target.value ? new Date(e.target.value) : undefined })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
@@ -387,8 +385,10 @@ export const TaskEditor: React.FC<TaskEditorProps> = ({
                   key={rating}
                   onClick={() => updateTask({
                     successMetrics: {
-                      ...editedTask.successMetrics,
-                      quality: rating
+                      quality: rating,
+                      satisfaction: editedTask.successMetrics?.satisfaction || 0,
+                      onTime: editedTask.successMetrics?.onTime || false,
+                      notes: editedTask.successMetrics?.notes
                     }
                   })}
                   className={`p-2 rounded ${
@@ -416,8 +416,10 @@ export const TaskEditor: React.FC<TaskEditorProps> = ({
                   key={rating}
                   onClick={() => updateTask({
                     successMetrics: {
-                      ...editedTask.successMetrics,
-                      satisfaction: rating
+                      quality: editedTask.successMetrics?.quality || 0,
+                      satisfaction: rating,
+                      onTime: editedTask.successMetrics?.onTime || false,
+                      notes: editedTask.successMetrics?.notes
                     }
                   })}
                   className={`p-2 rounded ${
@@ -442,8 +444,10 @@ export const TaskEditor: React.FC<TaskEditorProps> = ({
                 checked={editedTask.successMetrics?.onTime || false}
                 onChange={(e) => updateTask({
                   successMetrics: {
-                    ...editedTask.successMetrics,
-                    onTime: e.target.checked
+                    quality: editedTask.successMetrics?.quality || 0,
+                    satisfaction: editedTask.successMetrics?.satisfaction || 0,
+                    onTime: e.target.checked,
+                    notes: editedTask.successMetrics?.notes
                   }
                 })}
                 className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
@@ -460,7 +464,9 @@ export const TaskEditor: React.FC<TaskEditorProps> = ({
               value={editedTask.successMetrics?.notes || ''}
               onChange={(e) => updateTask({
                 successMetrics: {
-                  ...editedTask.successMetrics,
+                  quality: editedTask.successMetrics?.quality || 0,
+                  satisfaction: editedTask.successMetrics?.satisfaction || 0,
+                  onTime: editedTask.successMetrics?.onTime || false,
                   notes: e.target.value
                 }
               })}

@@ -76,7 +76,7 @@ export const InvitationManager: React.FC<InvitationManagerProps> = ({
 
   const handleAcceptInvitation = async (invitationId: string) => {
     try {
-      const result = await apiService.acceptInvitation(invitationId);
+      await apiService.acceptInvitation(invitationId);
       
       setMessage({ type: 'success', text: 'Invitation accepted! You now have access to the project.' });
       loadInvitations();

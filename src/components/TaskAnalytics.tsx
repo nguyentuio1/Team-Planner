@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
-  BarChart3, Star, Target, Clock, TrendingUp, 
-  CheckCircle, AlertTriangle, Calendar, Timer, Crown, Shield
+  Star, Target, 
+  CheckCircle, AlertTriangle, Timer, Crown, Shield
 } from 'lucide-react';
 import type { Task, User } from '../types';
 
@@ -26,7 +26,7 @@ export const TaskAnalytics: React.FC<TaskAnalyticsProps> = ({ tasks, teamMembers
     const completionRate = totalTasks > 0 ? (completed.length / totalTasks) * 100 : 0;
     
     // Time analytics
-    const totalTimeSpent = completed.reduce((sum, task) => sum + (task.time_spent || 0), 0);
+    const totalTimeSpent = completed.reduce((sum, task) => sum + (task.timeSpent || 0), 0);
     const avgTimePerTask = completed.length > 0 ? totalTimeSpent / completed.length : 0;
     
     // Success metrics
@@ -53,7 +53,7 @@ export const TaskAnalytics: React.FC<TaskAnalyticsProps> = ({ tasks, teamMembers
     const teamStats = teamMembers.map(member => {
       const memberTasks = tasks.filter(t => t.assignee_id === member.id);
       const memberCompleted = memberTasks.filter(t => t.status === 'completed');
-      const memberTimeSpent = memberCompleted.reduce((sum, t) => sum + (t.time_spent || 0), 0);
+      const memberTimeSpent = memberCompleted.reduce((sum, t) => sum + (t.timeSpent || 0), 0);
       
       return {
         ...member,

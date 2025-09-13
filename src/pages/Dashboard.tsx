@@ -155,6 +155,8 @@ export const Dashboard: React.FC = () => {
             status: 'pending' as const,
             estimate: taskData.estimate,
             priority: 'medium' as const,
+            created_at: new Date(),
+            updated_at: new Date(),
             richContent: {
               blocks: [
                 {
@@ -242,7 +244,7 @@ export const Dashboard: React.FC = () => {
 
   const stats = getProgressStats();
   
-  const isOwner = currentProject && user && currentProject.owner_id === user.id;
+  const isOwner = currentProject && user && currentProject.ownerId === user.id;
 
   if (loading) {
     return (
@@ -313,7 +315,7 @@ export const Dashboard: React.FC = () => {
                   >
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="text-lg font-semibold text-gray-900">{project.title}</h4>
-                      {project.owner_id === user?.id && (
+                      {project.ownerId === user?.id && (
                         <Crown className="h-5 w-5 text-yellow-500" />
                       )}
                     </div>
@@ -503,7 +505,7 @@ export const Dashboard: React.FC = () => {
               tasks={projectTasks}
               teamMembers={teamMembers}
               currentUserId={user?.id}
-              ownerId={currentProject.owner_id}
+              ownerId={currentProject.ownerId}
             />
           )}
 
@@ -526,7 +528,7 @@ export const Dashboard: React.FC = () => {
                 setTeamMembers(teamMembers.filter(m => m.id !== userId));
               }}
               currentUserId={user?.id || ''}
-              ownerId={currentProject.owner_id}
+              ownerId={currentProject.ownerId}
               projectId={currentProject.id}
               onTeamUpdate={() => loadProject(currentProject.id)}
             />

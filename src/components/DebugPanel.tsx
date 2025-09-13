@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { Bug, Users, Mail, Database, X } from 'lucide-react';
-import { dataService } from '../services/dataService';
+// import { dataService } from '../services/dataService';
 
 export const DebugPanel: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   const getDebugData = () => {
-    const allUsers = dataService.getAllUsers();
-    const allInvitations = dataService.getFromStoragePublic('ai_planner_invitations');
-    const allProjects = dataService.getFromStoragePublic('ai_planner_projects');
+    const allUsers: any[] = [];
+    const allInvitations: any[] = [];
+    const allProjects: any[] = [];
     
     return { allUsers, allInvitations, allProjects };
   };

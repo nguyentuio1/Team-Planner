@@ -6,7 +6,7 @@ import type { RootState } from './store';
 import { loginSuccess } from './store/slices/authSlice';
 import { Login } from './components/Login';
 import { Dashboard } from './pages/Dashboard';
-import { InvitationAcceptance } from './components/InvitationAcceptance';
+// import { InvitationAcceptance } from './components/InvitationAcceptance';
 import { apiService } from './services/apiService';
 
 const AppContent: React.FC = () => {
@@ -56,32 +56,28 @@ const AppContent: React.FC = () => {
     }
   }, [isAuthenticated, authCheckComplete]);
 
-  const handleInvitationAccepted = async (projectId: string) => {
-    try {
-      // The user is already logged in at this point from InvitationAcceptance component
-      // Just clear URL params and redirect to dashboard
-      window.history.replaceState({}, '', window.location.pathname);
-      setCurrentView('dashboard');
-    } catch (error) {
-      console.error('Error after invitation acceptance:', error);
-      setCurrentView('login');
-    }
-  };
+  // const handleInvitationAccepted = async () => {
+  //   try {
+  //     // The user is already logged in at this point from InvitationAcceptance component
+  //     // Just clear URL params and redirect to dashboard
+  //     window.history.replaceState({}, '', window.location.pathname);
+  //     setCurrentView('dashboard');
+  //   } catch (error) {
+  //     console.error('Error after invitation acceptance:', error);
+  //     setCurrentView('login');
+  //   }
+  // };
 
-  const handleInvitationRejected = () => {
-    // Clear URL params and go to login
-    window.history.replaceState({}, '', window.location.pathname);
-    setCurrentView('login');
-  };
+  // const handleInvitationRejected = () => {
+  //   // Clear URL params and go to login
+  //   window.history.replaceState({}, '', window.location.pathname);
+  //   setCurrentView('login');
+  // };
 
   if (currentView === 'invitation' && invitationId) {
-    return (
-      <InvitationAcceptance
-        invitationId={invitationId}
-        onAccepted={handleInvitationAccepted}
-        onRejected={handleInvitationRejected}
-      />
-    );
+    // Temporarily disabled InvitationAcceptance
+    setCurrentView('login');
+    return null;
   }
 
   if (!authCheckComplete) {

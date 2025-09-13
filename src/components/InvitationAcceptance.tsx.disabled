@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Check, X, Clock, Crown, AlertCircle } from 'lucide-react';
-import { dataService } from '../services/dataService';
+// import { dataService } from '../services/dataService';
 import type { User } from '../types';
 
 interface InvitationAcceptanceProps {

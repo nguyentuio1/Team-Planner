@@ -67,7 +67,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onTaskUpdate, onTas
   const handleAssigneeChange = async (task: Task, assigneeId: string) => {
     try {
       const updatedTask = await apiService.updateTask(task.id, { 
-        assignee_id: assigneeId || null 
+        assignee_id: assigneeId || undefined 
       });
       onTaskUpdate(updatedTask);
       
@@ -375,6 +375,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onTaskUpdate, onTas
         <TaskEditor
           task={editingTask}
           onSave={onTaskUpdate}
+          onDelete={onTaskDelete}
           onClose={() => setEditingTask(null)}
           teamMembers={teamMembers}
           isOwner={isOwner}

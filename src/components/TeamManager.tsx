@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserPlus, Users, Mail, X, Crown, Shield, Clock, AlertCircle } from 'lucide-react';
-import { apiService } from '../services/apiService';
+// import { apiService } from '../services/apiService';
 import type { User } from '../types';
 
 interface TeamManagerProps {
@@ -15,12 +15,9 @@ interface TeamManagerProps {
 
 export const TeamManager: React.FC<TeamManagerProps> = ({
   teamMembers,
-  onAddMember,
   onRemoveMember,
   currentUserId,
-  ownerId,
-  projectId,
-  onTeamUpdate,
+  ownerId
 }) => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newMember, setNewMember] = useState({
