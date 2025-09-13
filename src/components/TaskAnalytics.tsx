@@ -17,8 +17,8 @@ export const TaskAnalytics: React.FC<TaskAnalyticsProps> = ({ tasks, teamMembers
     const completed = tasks.filter(t => t.status === 'completed');
     const inProgress = tasks.filter(t => t.status === 'in-progress');
     const overdue = tasks.filter(t => 
-      t.dueDate && 
-      new Date(t.dueDate) < new Date() && 
+      t.due_date && 
+      new Date(t.due_date) < new Date() && 
       t.status !== 'completed'
     );
     
@@ -26,7 +26,7 @@ export const TaskAnalytics: React.FC<TaskAnalyticsProps> = ({ tasks, teamMembers
     const completionRate = totalTasks > 0 ? (completed.length / totalTasks) * 100 : 0;
     
     // Time analytics
-    const totalTimeSpent = completed.reduce((sum, task) => sum + (task.timeSpent || 0), 0);
+    const totalTimeSpent = completed.reduce((sum, task) => sum + (task.time_spent || 0), 0);
     const avgTimePerTask = completed.length > 0 ? totalTimeSpent / completed.length : 0;
     
     // Success metrics
@@ -51,9 +51,9 @@ export const TaskAnalytics: React.FC<TaskAnalyticsProps> = ({ tasks, teamMembers
     
     // Team performance
     const teamStats = teamMembers.map(member => {
-      const memberTasks = tasks.filter(t => t.assignee === member.userId);
+      const memberTasks = tasks.filter(t => t.assignee_id === member.id);
       const memberCompleted = memberTasks.filter(t => t.status === 'completed');
-      const memberTimeSpent = memberCompleted.reduce((sum, t) => sum + (t.timeSpent || 0), 0);
+      const memberTimeSpent = memberCompleted.reduce((sum, t) => sum + (t.time_spent || 0), 0);
       
       return {
         ...member,
@@ -257,17 +257,17 @@ export const TaskAnalytics: React.FC<TaskAnalyticsProps> = ({ tasks, teamMembers
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {analytics.teamStats.map((member) => (
-                  <tr key={member.userId}>
+                  <tr key={member.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-medium ${
-                          ownerId === member.userId 
+                          ownerId === member.id 
                             ? 'bg-gradient-to-r from-yellow-500 to-orange-500' 
-                            : currentUserId === member.userId
+                            : currentUserId === member.id
                             ? 'bg-gradient-to-r from-blue-500 to-indigo-500'
                             : 'bg-gradient-to-r from-gray-500 to-gray-600'
                         }`}>
-                          {ownerId === member.userId ? (
+                          {ownerId === member.id ? (
                             <Crown className="h-4 w-4" />
                           ) : (
                             <span className="text-xs">
@@ -278,13 +278,13 @@ export const TaskAnalytics: React.FC<TaskAnalyticsProps> = ({ tasks, teamMembers
                         <div className="ml-3">
                           <div className="flex items-center space-x-2">
                             <div className="text-sm font-medium text-gray-900">{member.name}</div>
-                            {ownerId === member.userId && (
+                            {ownerId === member.id && (
                               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-yellow-800 bg-yellow-100 border border-yellow-200">
                                 <Crown className="h-3 w-3 mr-1" />
                                 Owner
                               </span>
                             )}
-                            {currentUserId === member.userId && ownerId !== member.userId && (
+                            {currentUserId === member.id && ownerId !== member.id && (
                               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-blue-800 bg-blue-100 border border-blue-200">
                                 <Shield className="h-3 w-3 mr-1" />
                                 You

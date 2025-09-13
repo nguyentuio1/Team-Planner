@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
-  Clock, User, Tag, Calendar, Edit, Star, Target, 
+  Clock, User as UserIcon, Tag, Calendar, Edit, Star, Target, 
   Timer, AlertTriangle, CheckCircle, Circle
 } from 'lucide-react';
-import type { Task } from '../types';
+import type { Task, User } from '../types';
 import { TaskEditor } from './TaskEditor';
 import { apiService } from '../services/apiService';
 
@@ -11,7 +11,7 @@ interface TaskBoardProps {
   tasks: Task[];
   onTaskUpdate: (task: Task) => void;
   onRefreshTasks?: () => void;
-  teamMembers: { userId: string; name: string; role: string; email: string }[];
+  teamMembers: User[];
   currentUserId: string;
   isOwner: boolean;
 }
@@ -66,7 +66,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onTaskUpdate, onRef
   const handleAssigneeChange = async (task: Task, assigneeId: string) => {
     try {
       const updatedTask = await apiService.updateTask(task.id, { 
-        assigneeId: assigneeId || null 
+        assignee_id: assigneeId || null 
       });
       onTaskUpdate(updatedTask);
       
@@ -100,8 +100,10 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onTaskUpdate, onRef
     }
   };
 
-  const canEditTask = (task: Task) => {
-    return isOwner || task.assignee_id === currentUserId;
+  const canEditTask = (task: Task): boolean => {
+    // Project owners can edit any task
+    // Team members can edit unassigned tasks or tasks assigned to them
+    return Boolean(isOwner || !task.assignee_id || task.assignee_id === currentUserId);
   };
 
   const formatTimeSpent = (minutes?: number) => {
@@ -124,7 +126,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onTaskUpdate, onRef
           backgroundColor: task.styling?.backgroundColor || '#ffffff',
           borderColor: isOverdue ? '#ef4444' : undefined
         }}
-        onClick={() => canEditTask(task) && setEditingTask(task)}
+        onClick={() => setEditingTask(task)}
       >
         {/* Priority Badge */}
         {task.priority && task.priority !== 'medium' && (
@@ -189,7 +191,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onTaskUpdate, onRef
           <div className="text-sm text-gray-600 mb-3">
             {task.richContent.blocks.slice(0, 2).map((block, index) => (
               <div 
-                key={block.id} 
+                key={`${task.id}-${index}`} 
                 className={`${index > 0 ? 'mt-1' : ''} line-clamp-2`}
                 style={{
                   color: block.styling?.color,
@@ -224,19 +226,19 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onTaskUpdate, onRef
                 <span>{task.estimate}</span>
               </div>
             )}
-            {task.time_spent && task.time_spent > 0 && (
+            {task.timeSpent && task.timeSpent > 0 && (
               <div className="flex items-center text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
                 <Timer className="h-3 w-3 mr-1" />
-                <span>{formatTimeSpent(task.time_spent)}</span>
+                <span>{formatTimeSpent(task.timeSpent)}</span>
               </div>
             )}
           </div>
 
           {/* Assignee */}
           <div className="flex items-center text-xs">
-            <User className="h-3 w-3 mr-1 text-gray-500" />
+            <UserIcon className="h-3 w-3 mr-1 text-gray-500" />
             <select
-              value={task.assignee_id || ''}
+              value={task.assignee_id ?? ''}
               onChange={(e) => {
                 e.stopPropagation();
                 handleAssigneeChange(task, e.target.value);
@@ -349,7 +351,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onTaskUpdate, onRef
           onClose={() => setEditingTask(null)}
           teamMembers={teamMembers}
           isOwner={isOwner}
-          canEdit={canEditTask(editingTask)}
+          canEdit={canEditTask(editingTask!)}
         />
       )}
     </>

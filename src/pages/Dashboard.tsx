@@ -19,6 +19,12 @@ export const Dashboard: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   
   const [currentView, setCurrentView] = useState<'projects' | 'goal' | 'tasks' | 'team' | 'analytics' | 'invitations'>('projects');
+
+  // Wrapper function to save view to localStorage
+  const changeView = (view: typeof currentView) => {
+    setCurrentView(view);
+    localStorage.setItem('dashboard_current_view', view);
+  };
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [userProjects, setUserProjects] = useState<Project[]>([]);
   const [projectTasks, setProjectTasks] = useState<Task[]>([]);
@@ -45,10 +51,23 @@ export const Dashboard: React.FC = () => {
       if (projects.length === 0) {
         setCurrentView('projects');
       } else {
-        // Load the first project by default
-        const firstProject = projects[0];
-        await loadProject(firstProject.id);
-        setCurrentView('goal');
+        // Try to restore last project and view from localStorage
+        const lastProjectId = localStorage.getItem('dashboard_current_project');
+        const lastView = localStorage.getItem('dashboard_current_view') as typeof currentView;
+        
+        // Check if the saved project still exists in user's projects
+        const savedProject = lastProjectId ? projects.find(p => p.id === lastProjectId) : null;
+        
+        if (savedProject && lastView) {
+          // Restore saved state
+          await loadProject(savedProject.id);
+          setCurrentView(lastView);
+        } else {
+          // Load the first project by default
+          const firstProject = projects[0];
+          await loadProject(firstProject.id);
+          setCurrentView('goal');
+        }
       }
     } catch (error) {
       console.error('Failed to load user data:', error);
@@ -63,6 +82,9 @@ export const Dashboard: React.FC = () => {
     try {
       const project = await apiService.getProject(projectId);
       setCurrentProject(project);
+      
+      // Save current project to localStorage
+      localStorage.setItem('dashboard_current_project', projectId);
       
       // Load project tasks
       const tasks = await apiService.getTasks(projectId);
@@ -113,7 +135,7 @@ export const Dashboard: React.FC = () => {
       
       setUserProjects([...userProjects, newProject]);
       await loadProject(newProject.id);
-      setCurrentView('goal');
+      changeView('goal');
     } catch (error) {
       console.error('Failed to create project:', error);
     }
@@ -127,7 +149,7 @@ export const Dashboard: React.FC = () => {
       for (const milestone of breakdown.milestones) {
         for (const taskData of milestone.tasks) {
           const taskToCreate = {
-            projectId: currentProject.id,
+            project_id: currentProject.id,
             title: taskData.title,
             description: taskData.description,
             status: 'pending' as const,
@@ -148,7 +170,7 @@ export const Dashboard: React.FC = () => {
           if (taskData.suggestedRole) {
             const suggestedMember = teamMembers.find(m => m.role === taskData.suggestedRole);
             if (suggestedMember) {
-              (taskToCreate as any).assignee = suggestedMember.id;
+              (taskToCreate as any).assignee_id = suggestedMember.id;
             }
           }
 
@@ -159,7 +181,7 @@ export const Dashboard: React.FC = () => {
       // Reload tasks
       const tasks = await apiService.getTasks(currentProject.id);
       setProjectTasks(tasks);
-      setCurrentView('tasks');
+      changeView('tasks');
     } catch (error) {
       console.error('Failed to create tasks:', error);
     }
@@ -183,7 +205,7 @@ export const Dashboard: React.FC = () => {
     // Reload all data when invitation is accepted
     loadUserData(); 
     // Switch to projects view to see newly accessible projects
-    setCurrentView('projects');
+    changeView('projects');
   };
 
   const getProgressStats = () => {
@@ -255,7 +277,7 @@ export const Dashboard: React.FC = () => {
               // Refresh projects list and navigate to the accepted project
               loadUserData();
               loadProject(projectId);
-              setCurrentView('goal');
+              changeView('goal');
             }}
           />
 
@@ -269,7 +291,7 @@ export const Dashboard: React.FC = () => {
                     key={project.id}
                     onClick={() => {
                       loadProject(project.id);
-                      setCurrentView('goal');
+                      changeView('goal');
                     }}
                     className="bg-white rounded-lg shadow-md p-6 cursor-pointer hover:shadow-lg transition-shadow border-l-4 border-l-indigo-500"
                   >
@@ -307,7 +329,7 @@ export const Dashboard: React.FC = () => {
     count?: number 
   }> = ({ view, icon, label, count }) => (
     <button
-      onClick={() => setCurrentView(view)}
+      onClick={() => changeView(view)}
       className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
         currentView === view
           ? 'bg-indigo-600 text-white'
@@ -333,7 +355,7 @@ export const Dashboard: React.FC = () => {
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center">
               <button
-                onClick={() => setCurrentView('projects')}
+                onClick={() => changeView('projects')}
                 className="mr-3 p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
                 title="Back to projects"
               >
@@ -453,7 +475,7 @@ export const Dashboard: React.FC = () => {
               tasks={projectTasks}
               onTaskUpdate={handleTaskUpdate}
               onRefreshTasks={refreshTasks}
-              teamMembers={teamMembers.map(m => ({ userId: m.id, name: m.name, role: m.role, email: m.email }))}
+              teamMembers={teamMembers}
               currentUserId={user?.id || ''}
               isOwner={isOwner || false}
             />
@@ -501,7 +523,7 @@ export const Dashboard: React.FC = () => {
                 Start by defining your project goal to generate AI-powered task breakdown.
               </p>
               <button
-                onClick={() => setCurrentView('goal')}
+                onClick={() => changeView('goal')}
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
               >
                 <Target className="h-4 w-4 mr-2" />

@@ -179,7 +179,7 @@ router.put('/:id', async (req, res) => {
     }
 
     // Build dynamic update - exclude problematic array fields for TaskBoard dropdown updates
-    const allowedFields = ['title', 'description', 'status', 'priority', 'assignee_id', 'due_date', 'estimate', 'milestone_id', 'time_spent'];
+    const allowedFields = ['title', 'description', 'status', 'priority', 'assignee_id', 'due_date', 'estimate', 'milestone_id', 'time_spent', 'styling'];
     const updateFields = [];
     const values = [];
     let paramCount = 1;
@@ -196,6 +196,8 @@ router.put('/:id', async (req, res) => {
         
         if (snakeField === 'assignee_id') {
           values.push(value === '' || value === undefined ? null : value);
+        } else if (snakeField === 'styling') {
+          values.push(value ? JSON.stringify(value) : null);
         } else {
           values.push(value ?? null);
         }

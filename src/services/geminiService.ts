@@ -13,7 +13,7 @@ export class GeminiService {
   private model;
 
   constructor() {
-    this.model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    this.model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
   }
 
   async generateTaskBreakdown(goal: string, teamMembers: string[] = []): Promise<AITaskBreakdown> {
@@ -150,7 +150,7 @@ Return format:
     } catch (error) {
       console.error('Error assigning tasks:', error);
       return tasks.map((task, index) => ({
-        taskId: task.taskId,
+        taskId: task.id,
         assignee: teamMembers[index % teamMembers.length]?.name || teamMembers[0]?.name,
         reason: 'Auto-assigned due to AI service error'
       }));

@@ -53,28 +53,18 @@ export const TaskEditor: React.FC<TaskEditorProps> = ({
   }, [task]);
 
   if (!task || !editedTask) return null;
-  if (!canEdit && !isOwner) {
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-          <h3 className="text-lg font-semibold mb-4">No Edit Permission</h3>
-          <p className="text-gray-600 mb-4">You don't have permission to edit this task.</p>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   const handleSave = () => {
     if (editedTask) {
+      console.log('DEBUG: TaskEditor saving task:', {
+        taskId: editedTask.id,
+        assignee_id: editedTask.assignee_id,
+        fullTask: editedTask
+      });
+      
       onSave({
         ...editedTask,
-        updatedAt: new Date()
+        updated_at: new Date()
       });
       onClose();
     }
@@ -307,13 +297,13 @@ export const TaskEditor: React.FC<TaskEditorProps> = ({
             Assignee
           </label>
           <select
-            value={editedTask.assignee || ''}
-            onChange={(e) => updateTask({ assignee: e.target.value || undefined })}
+            value={editedTask.assignee_id || ''}
+            onChange={(e) => updateTask({ assignee_id: e.target.value || undefined })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="">Unassigned</option>
             {teamMembers.map(member => (
-              <option key={member.userId} value={member.userId}>
+              <option key={member.id} value={member.id}>
                 {member.name}
               </option>
             ))}

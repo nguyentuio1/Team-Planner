@@ -1,5 +1,5 @@
 export interface User {
-  userId: string;
+  id: string;
   name: string;
   email: string;
   role: 'frontend' | 'backend' | 'design' | 'marketing' | 'general';
@@ -7,10 +7,10 @@ export interface User {
 }
 
 export interface Project {
-  projectId: string;
+  id: string;
   title: string;
   description: string;
-  members: string[];
+  members: User[];
   ownerId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -22,18 +22,18 @@ export interface Project {
 }
 
 export interface Task {
-  taskId: string;
-  projectId: string;
+  id: string;
+  project_id: string;
   title: string;
   description: string;
   status: 'pending' | 'in-progress' | 'completed';
-  assignee?: string;
-  dueDate?: Date;
+  assignee_id?: string;
+  due_date?: Date;
   estimate?: string;
   tags?: string[];
-  milestoneId?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  milestone_id?: string;
+  created_at: Date;
+  updated_at: Date;
   // Enhanced features
   priority: 'low' | 'medium' | 'high' | 'urgent';
   completedAt?: Date;

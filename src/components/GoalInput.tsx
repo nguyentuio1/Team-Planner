@@ -66,7 +66,7 @@ export const GoalInput: React.FC<GoalInputProps> = ({ onTaskBreakdown, teamMembe
             <div className="flex flex-wrap gap-2">
               {teamMembers.map((member) => (
                 <span
-                  key={member.userId}
+                  key={member.id}
                   className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800"
                 >
                   {member.name} ({member.role})

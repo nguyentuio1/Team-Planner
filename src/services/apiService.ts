@@ -191,16 +191,16 @@ class ApiService {
     const response = await this.request<{ task: Task }>('/tasks', {
       method: 'POST',
       body: JSON.stringify({
-        projectId: taskData.projectId,
+        projectId: taskData.project_id,
         title: taskData.title,
         description: taskData.description,
         status: taskData.status,
         priority: taskData.priority,
-        assigneeId: taskData.assignee,
-        dueDate: taskData.dueDate,
+        assigneeId: taskData.assignee_id,
+        dueDate: taskData.due_date,
         estimate: taskData.estimate,
         tags: taskData.tags,
-        milestoneId: taskData.milestoneId,
+        milestoneId: taskData.milestone_id,
       }),
     });
 
