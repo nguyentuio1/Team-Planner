@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Clock, User as UserIcon, Tag, Calendar, Edit, Star, Target, 
-  Timer, AlertTriangle, CheckCircle, Circle
+  Timer, AlertTriangle, CheckCircle, Circle, Trash2
 } from 'lucide-react';
 import type { Task, User } from '../types';
 import { TaskEditor } from './TaskEditor';
@@ -10,13 +10,14 @@ import { apiService } from '../services/apiService';
 interface TaskBoardProps {
   tasks: Task[];
   onTaskUpdate: (task: Task) => void;
+  onTaskDelete: (taskId: string) => void;
   onRefreshTasks?: () => void;
   teamMembers: User[];
   currentUserId: string;
   isOwner: boolean;
 }
 
-export const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onTaskUpdate, onRefreshTasks, teamMembers, currentUserId, isOwner }) => {
+export const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onTaskUpdate, onTaskDelete, onRefreshTasks, teamMembers, currentUserId, isOwner }) => {
   
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const getTasksByStatus = (status: Task['status']) => {
@@ -79,6 +80,21 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onTaskUpdate, onRef
     }
   };
 
+  const handleTaskDelete = async (task: Task) => {
+    if (window.confirm(`Are you sure you want to delete "${task.title}"? This action cannot be undone.`)) {
+      try {
+        await apiService.deleteTask(task.id);
+        onTaskDelete(task.id);
+        
+        // Auto-refresh tasks after successful deletion
+        if (onRefreshTasks) {
+          setTimeout(() => onRefreshTasks(), 100);
+        }
+      } catch (error) {
+        console.error('Failed to delete task:', error);
+      }
+    }
+  };
 
   const getPriorityColor = (priority?: string) => {
     switch (priority) {
@@ -143,17 +159,28 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ tasks, onTaskUpdate, onRef
           </div>
         )}
 
-        {/* Edit Button */}
+        {/* Edit & Delete Buttons */}
         {canEditTask(task) && (
-          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 setEditingTask(task);
               }}
               className="p-1 bg-white rounded shadow-sm hover:bg-gray-50 border"
+              title="Edit task"
             >
               <Edit className="h-3 w-3 text-gray-600" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleTaskDelete(task);
+              }}
+              className="p-1 bg-white rounded shadow-sm hover:bg-red-50 border hover:border-red-200"
+              title="Delete task"
+            >
+              <Trash2 className="h-3 w-3 text-red-600" />
             </button>
           </div>
         )}

@@ -3,13 +3,14 @@ import {
   X, Save, Clock, Calendar, User, Tag, Palette, 
   Bold, Italic, Underline, Type, AlignLeft, 
   CheckSquare, List, Code, Quote, Plus,
-  Star, Timer, Target
+  Star, Timer, Target, Trash2
 } from 'lucide-react';
 import type { Task, User as UserType, ContentBlock } from '../types';
 
 interface TaskEditorProps {
   task: Task | null;
   onSave: (task: Task) => void;
+  onDelete: (taskId: string) => void;
   onClose: () => void;
   teamMembers: UserType[];
   isOwner: boolean;
@@ -19,6 +20,7 @@ interface TaskEditorProps {
 export const TaskEditor: React.FC<TaskEditorProps> = ({
   task,
   onSave,
+  onDelete,
   onClose,
   teamMembers,
   isOwner,
@@ -623,20 +625,35 @@ export const TaskEditor: React.FC<TaskEditorProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50">
+        <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
           <button
-            onClick={onClose}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+            onClick={() => {
+              if (window.confirm(`Are you sure you want to delete "${editedTask.title}"? This action cannot be undone.`)) {
+                onDelete(editedTask.id);
+                onClose();
+              }
+            }}
+            className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
           >
-            Cancel
+            <Trash2 className="h-4 w-4" />
+            <span>Delete Task</span>
           </button>
-          <button
-            onClick={handleSave}
-            className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-          >
-            <Save className="h-4 w-4" />
-            <span>Save Changes</span>
-          </button>
+          
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              <Save className="h-4 w-4" />
+              <span>Save Changes</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

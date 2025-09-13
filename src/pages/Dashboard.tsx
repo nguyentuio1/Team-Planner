@@ -201,6 +201,22 @@ export const Dashboard: React.FC = () => {
     }
   };
 
+  const handleTaskDelete = async (taskId: string) => {
+    if (!user || !currentProject) return;
+    
+    try {
+      await apiService.deleteTask(taskId);
+      
+      // Remove task from local state immediately
+      setProjectTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
+      
+      // Also refresh tasks from server to ensure consistency
+      setTimeout(() => refreshTasks(), 100);
+    } catch (error) {
+      console.error('Failed to delete task:', error);
+    }
+  };
+
   const handleInvitationAccepted = () => {
     // Reload all data when invitation is accepted
     loadUserData(); 
@@ -474,6 +490,7 @@ export const Dashboard: React.FC = () => {
             <TaskBoard 
               tasks={projectTasks}
               onTaskUpdate={handleTaskUpdate}
+              onTaskDelete={handleTaskDelete}
               onRefreshTasks={refreshTasks}
               teamMembers={teamMembers}
               currentUserId={user?.id || ''}
