@@ -44,8 +44,13 @@ const createInvitationSchema = Joi.object({
 // Send invitation
 router.post('/', async (req, res) => {
   try {
+    console.log('=== INVITATION REQUEST START ===');
+    console.log('Request body:', req.body);
+    console.log('User:', req.user);
+
     const { error, value } = createInvitationSchema.validate(req.body);
     if (error) {
+      console.log('Validation error:', error.details[0].message);
       return res.status(400).json({
         success: false,
         message: 'Validation error',
@@ -54,16 +59,29 @@ router.post('/', async (req, res) => {
     }
 
     const { email, projectId } = value;
+    console.log('Validated data:', { email, projectId });
 
     // Check if user has permission to invite
+    console.log('Checking project permissions...');
     const projectQuery = `
       SELECT p.id, p.title, p.owner_id, p.settings, pm.user_id as is_member
       FROM projects p
       LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = $2
       WHERE p.id = $1
     `;
-    
-    const projectResult = await db.query(projectQuery, [projectId, req.user.id]);
+
+    let projectResult;
+    try {
+      projectResult = await db.query(projectQuery, [projectId, req.user.id]);
+      console.log('Project query result:', projectResult.rows);
+    } catch (dbError) {
+      console.error('Database query failed:', dbError);
+      return res.status(500).json({
+        success: false,
+        message: 'Database connection error',
+        error: process.env.NODE_ENV === 'development' ? dbError.message : undefined
+      });
+    }
 
     if (projectResult.rows.length === 0) {
       return res.status(404).json({
@@ -133,11 +151,13 @@ router.post('/', async (req, res) => {
 
     const invitation = invitationResult.rows[0];
 
-    // Send invitation email
+    // Send invitation email (wrap in try-catch to prevent crashes)
     const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}?invite=${invitation.id}`;
-    const transporter = createEmailTransporter();
 
-    const emailOptions = {
+    console.log('Attempting to send email...');
+    try {
+      const transporter = createEmailTransporter();
+      const emailOptions = {
       from: process.env.EMAIL_FROM || 'noreply@teamplanner.com',
       to: email,
       subject: `Invitation to join "${project.title}" project`,
@@ -175,8 +195,14 @@ router.post('/', async (req, res) => {
       `
     };
 
-    await transporter.sendMail(emailOptions);
+      await transporter.sendMail(emailOptions);
+      console.log('Email sent successfully');
+    } catch (emailError) {
+      console.error('Email sending failed (but continuing):', emailError);
+      // Don't fail the whole request if email fails - just log it
+    }
 
+    console.log('Sending success response...');
     res.status(201).json({
       success: true,
       message: 'Invitation sent successfully',
