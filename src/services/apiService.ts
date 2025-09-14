@@ -273,10 +273,13 @@ class ApiService {
   async sendInvitation(projectId: string, email: string): Promise<{
     invitation: any;
   }> {
+    console.log('API Service: Sending invitation request', { projectId, email });
     const response = await this.request<{ invitation: any }>('/invitations', {
       method: 'POST',
       body: JSON.stringify({ projectId, email }),
     });
+
+    console.log('API Service: Response received', response);
 
     if (response.success && response.data) {
       return response.data;

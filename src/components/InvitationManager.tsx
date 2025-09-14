@@ -49,25 +49,28 @@ export const InvitationManager: React.FC<InvitationManagerProps> = ({
     setInviting(true);
     
     try {
+      console.log('Sending invitation for projectId:', projectId, 'email:', inviteEmail.trim());
       const invitation = await apiService.sendInvitation(projectId, inviteEmail.trim());
-      
+      console.log('Invitation response:', invitation);
+
       // Generate invitation link
       const inviteLink = `${window.location.origin}${window.location.pathname}?invite=${invitation.invitation.id}`;
-      
-      setMessage({ 
-        type: 'success', 
+
+      setMessage({
+        type: 'success',
         text: `Invitation created for ${inviteEmail}! Share the invitation link below:`,
         link: inviteLink
       });
       setInviteEmail('');
-      
+
       // In a real app, you would send an email here
       // await sendInvitationEmail(inviteEmail, invitation);
-      
+
     } catch (error) {
-      setMessage({ 
-        type: 'error', 
-        text: error instanceof Error ? error.message : 'Failed to send invitation' 
+      console.error('Invitation error details:', error);
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Failed to send invitation'
       });
     } finally {
       setInviting(false);
