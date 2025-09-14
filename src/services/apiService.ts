@@ -120,20 +120,32 @@ class ApiService {
 
   // ========== PROJECT METHODS ==========
   async getProjects(): Promise<Project[]> {
-    const response = await this.request<{ projects: Project[] }>('/projects');
+    const response = await this.request<{ projects: any[] }>('/projects');
 
     if (response.success && response.data) {
-      return response.data.projects;
+      return response.data.projects.map((project: any) => ({
+        ...project,
+        ownerId: project.owner_id,
+        createdAt: new Date(project.created_at),
+        updatedAt: new Date(project.updated_at)
+      }));
     }
 
     throw new Error(response.message || 'Failed to fetch projects');
   }
 
   async getProject(projectId: string): Promise<Project> {
-    const response = await this.request<{ project: Project }>(`/projects/${projectId}`);
+    const response = await this.request<{ project: any }>(`/projects/${projectId}`);
 
     if (response.success && response.data) {
-      return response.data.project;
+      const project = response.data.project;
+      // Transform backend snake_case to frontend camelCase
+      return {
+        ...project,
+        ownerId: project.owner_id,
+        createdAt: new Date(project.created_at),
+        updatedAt: new Date(project.updated_at)
+      };
     }
 
     throw new Error(response.message || 'Failed to fetch project');
@@ -148,13 +160,19 @@ class ApiService {
       allowMemberInvite?: boolean;
     };
   }): Promise<Project> {
-    const response = await this.request<{ project: Project }>('/projects', {
+    const response = await this.request<{ project: any }>('/projects', {
       method: 'POST',
       body: JSON.stringify(projectData),
     });
 
     if (response.success && response.data) {
-      return response.data.project;
+      const project = response.data.project;
+      return {
+        ...project,
+        ownerId: project.owner_id,
+        createdAt: new Date(project.created_at),
+        updatedAt: new Date(project.updated_at)
+      };
     }
 
     throw new Error(response.message || 'Failed to create project');
