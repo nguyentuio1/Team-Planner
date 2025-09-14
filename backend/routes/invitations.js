@@ -38,7 +38,7 @@ const createEmailTransporter = () => {
 // Validation schemas
 const createInvitationSchema = Joi.object({
   email: Joi.string().email().required(),
-  projectId: Joi.string().uuid().required()
+  projectId: Joi.string().required()
 });
 
 // Send invitation
@@ -195,9 +195,11 @@ router.post('/', async (req, res) => {
 
   } catch (error) {
     console.error('Send invitation error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
-      message: 'Failed to send invitation'
+      message: 'Failed to send invitation',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
