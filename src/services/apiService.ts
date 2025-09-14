@@ -2,13 +2,11 @@ import type { User, Project, Task } from '../types';
 
 // Get API base URL, prioritizing environment variable, then production URL
 const getApiBaseUrl = () => {
-  if (import.meta.env.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL;
-  }
-
-  // Check if we're in production - use current origin for API calls
+  // Force dynamic URL detection - ignore environment variables for now
   if (typeof window !== 'undefined') {
-    return `${window.location.origin}/api`;
+    const dynamicUrl = `${window.location.origin}/api`;
+    console.log('Dynamic API URL detected:', dynamicUrl);
+    return dynamicUrl;
   }
 
   // Fallback for SSR or initial load
